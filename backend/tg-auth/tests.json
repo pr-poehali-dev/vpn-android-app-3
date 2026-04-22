@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET /me without session returns 401",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    },
+    {
+      "name": "POST with invalid data returns 403",
+      "method": "POST",
+      "path": "/",
+      "body": { "id": "123", "first_name": "Test", "auth_date": "1700000000", "hash": "invalid" },
+      "expectedStatus": 403
+    }
+  ]
+}
