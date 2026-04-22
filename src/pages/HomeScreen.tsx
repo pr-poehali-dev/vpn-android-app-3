@@ -23,7 +23,7 @@ export default function HomeScreen({
     <div className="flex flex-col h-full px-5 pt-8 pb-4 gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">SwiftVPN</h1>
+          <h1 className="text-xl font-bold text-white">CedarVPN</h1>
           <p className="text-xs text-[#8ea0b8] mt-0.5">Безопасное соединение</p>
         </div>
         <div className="flex items-center gap-2">
