@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import HomeScreen from "./HomeScreen";
 import CountryScreen from "./CountryScreen";
 import SettingsScreen from "./SettingsScreen";
+import LoginScreen, { type TgUser } from "./LoginScreen";
+import ProfileScreen from "./ProfileScreen";
 
-type Tab = "home" | "servers" | "settings";
+type Tab = "home" | "servers" | "settings" | "profile";
 type Status = "disconnected" | "connecting" | "connected";
 
 const COUNTRIES = [
@@ -13,11 +15,41 @@ const COUNTRIES = [
   { name: "Германия", flag: "🇩🇪", ping: 22, region: "Европа" },
 ];
 
+const TG_AUTH_URL = "https://functions.poehali.dev/58bd900f-b23b-4a95-9503-c3037230fbb0";
+
+// Укажи username своего Telegram-бота (без @)
+const BOT_USERNAME = "";
+
 export default function Index() {
   const [tab, setTab] = useState<Tab>("home");
   const [status, setStatus] = useState<Status>("disconnected");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
   const [notifications, setNotifications] = useState(true);
+  const [user, setUser] = useState<TgUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Восстановить сессию при загрузке
+  useEffect(() => {
+    const session = localStorage.getItem("vpn_session");
+    if (!session) { setAuthLoading(false); return; }
+    fetch(TG_AUTH_URL, { headers: { "x-session-id": session } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.user) setUser(data.user); })
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  const handleLogin = useCallback((tgUser: TgUser, sessionId: string) => {
+    setUser(tgUser);
+    localStorage.setItem("vpn_session", sessionId);
+    setTab("home");
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem("vpn_session");
+    setStatus("disconnected");
+    setTab("home");
+  }, []);
 
   const handleToggle = () => {
     if (status === "disconnected") {
@@ -26,14 +58,10 @@ export default function Index() {
     } else if (status === "connected") {
       setStatus("disconnected");
       if (notifications) {
-        showNotification("VPN отключён", "Ваше соединение больше не защищено");
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("VPN отключён", { body: "Ваше соединение больше не защищено", icon: "/favicon.ico" });
+        }
       }
-    }
-  };
-
-  const showNotification = (title: string, body: string) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, icon: "/favicon.ico" });
     }
   };
 
@@ -52,7 +80,39 @@ export default function Index() {
     { id: "home", icon: "Shield", label: "VPN" },
     { id: "servers", icon: "Globe", label: "Серверы" },
     { id: "settings", icon: "Settings", label: "Настройки" },
+    { id: "profile", icon: "User", label: "Профиль" },
   ];
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--vpn-bg)" }}>
+        <div className="connecting-spin">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="16" stroke="var(--vpn-green)" strokeWidth="3" strokeDasharray="40 60" strokeLinecap="round" />
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--vpn-bg)" }}>
+        <div
+          className="relative flex flex-col overflow-hidden"
+          style={{
+            width: "min(100vw, 390px)",
+            height: "min(100vh, 844px)",
+            background: "var(--vpn-bg)",
+            borderRadius: "clamp(0px, calc((100vw - 390px) * 999), 36px)",
+            boxShadow: "0 40px 120px rgba(0,0,0,0.6)",
+          }}
+        >
+          <LoginScreen onLogin={handleLogin} botUsername={BOT_USERNAME} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -102,6 +162,9 @@ export default function Index() {
               onNotificationsChange={setNotifications}
             />
           )}
+          {tab === "profile" && (
+            <ProfileScreen user={user} onLogout={handleLogout} />
+          )}
         </div>
 
         <nav
@@ -119,14 +182,20 @@ export default function Index() {
               onClick={() => setTab(id)}
               className={`nav-item flex-1 flex flex-col items-center justify-center py-3 gap-1 ${tab === id ? "active" : ""}`}
             >
-              <Icon
-                name={icon}
-                size={20}
-                style={{
-                  color: tab === id ? "var(--vpn-green)" : "#4a6080",
-                  transition: "color 0.2s",
-                }}
-              />
+              {id === "profile" && user?.photo_url ? (
+                <img
+                  src={user.photo_url}
+                  alt=""
+                  className="w-5 h-5 rounded-full object-cover"
+                  style={{ border: tab === id ? "1.5px solid var(--vpn-green)" : "1.5px solid #4a6080" }}
+                />
+              ) : (
+                <Icon
+                  name={icon}
+                  size={20}
+                  style={{ color: tab === id ? "var(--vpn-green)" : "#4a6080", transition: "color 0.2s" }}
+                />
+              )}
               <span
                 className="text-[10px] font-medium"
                 style={{ color: tab === id ? "var(--vpn-green)" : "#4a6080" }}
